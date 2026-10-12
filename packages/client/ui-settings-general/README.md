@@ -45,6 +45,8 @@ The Coding Tools switch controls the shared `ui-settings.enabled` preference des
 
 The General section holds the built-in Coding Tools and Current version rows alongside rows registered into `settings.general.item` by feature packages. Each registrant owns its row copy and behavior. The Appearance row, for example, lives in ui-theme.
 
+**Turn completion notifications** decide when a finished Turn raises an operating-system notification. `Unfocused only` (the default) announces a completion the user cannot see, `Always` announces every completion, and `Never` turns the notice off; the Sound switch controls whether the operating system plays the notification's own sound. Both preferences persist as the `ui-settings-general.turnMode` and `ui-settings-general.sound` fields of the Host user-settings document, so a Desktop and a loopback Web client share them. The rows require the Desktop shell: an ordinary Web page loads the same preferences but raises no notice. The shell owns focus observation, native presentation, and the click that returns the window; the page reports only the completed-Turn transition and its Session label. Notification permission denied at the operating-system level leaves task execution and the page unchanged.
+
 ### Opening the configuration file
 
 On a loopback browser, the shell renders **Open configuration file** only when the Host confirms that a provider-owned local document can be prepared. The action opens that document in the native text editor (bypassing the browser file association on macOS). Remote browsers never register the action and never issue the privileged settings read.

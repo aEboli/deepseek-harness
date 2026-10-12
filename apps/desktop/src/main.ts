@@ -60,6 +60,7 @@ import { DesktopUpdateOverlays } from './update-overlay.ts'
 import { DesktopQuitConfirmation } from './quit-confirmation.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
+import { DesktopTurnNotification } from './turn-notification.ts'
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => {}
@@ -370,6 +371,13 @@ async function main(): Promise<void> {
   const currentDialogWindow = (): BrowserWindow | undefined => welcomeWindow ?? mainWindow
   const updateOverlays = new DesktopUpdateOverlays()
   const updateDialog = new DesktopUpdateDialog(fileURLToPath(new URL('./preload-update-dialog.cjs', import.meta.url)), () => locale, updateOverlays)
+  // Completed-turn notices belong to the shell: the page reports the completion, the
+  // shell decides whether it is background news and owns the return-to-app click.
+  const turnNotification = new DesktopTurnNotification({
+    locale: () => locale,
+    focused: () => mainWindow?.isFocused() === true,
+    activate: () => { focusPrimaryWindow() },
+  })
   const isMandatory = (): boolean => mandatoryPolicy?.state.blocking === true
   const ordinaryMessageBox = async (options: UpdateDialogOptions): Promise<Electron.MessageBoxReturnValue> => {
     const controller = new AbortController()
@@ -424,6 +432,14 @@ async function main(): Promise<void> {
       throw new Error('dsh desktop: rejected IPC from an unowned renderer')
     }
   }
+  ipcMain.handle(DESKTOP_IPC.notifyTurnEnd, (event, title: unknown, body: unknown, sound: unknown) => {
+    assertProductSender(event)
+    turnNotification.completed(title, body, sound)
+  })
+  ipcMain.handle(DESKTOP_IPC.dismissTurnEnd, (event) => {
+    assertProductSender(event)
+    turnNotification.clear()
+  })
   let navigation: { window: BrowserWindow; url: string; promise: Promise<void> } | undefined
   const navigateMain = (url: string): Promise<void> => {
     const window = mainWindow
