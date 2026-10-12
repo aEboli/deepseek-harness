@@ -14,6 +14,7 @@ import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { LOCALE_SETTINGS_NAMESPACE, LocaleSettingsSchema } from '@deepseek-ai/dsh-client-locale/src/locale-settings.ts'
 import { inject } from '../src/client/index.ts'
 import type { DeveloperToolsRowInjected } from '../src/client/DeveloperToolsRow.tsx'
+import type { TurnNotificationInjected } from '../src/client/turn-notification-policy.ts'
 import { CloseLabel, HeaderContent, TriggerContent } from '../src/client/chrome.tsx'
 import { GeneralSection } from '../src/client/GeneralSection.tsx'
 import { SettingsDocumentAction } from '../src/client/SettingsDocumentAction.tsx'
@@ -89,11 +90,11 @@ function setPageUrl(url: string): void {
 
 describe('ui-settings-general apply', () => {
   it('declares the services it uses', () => {
-    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.settings', 'configForms', 'shortcuts'])
+    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.settings', 'configForms', 'shortcuts', 'sessions'])
   })
 
   it('fills the five seats of the shell it declares, with the locale-following General label', async ({ mock, start }) => {
-    const { c } = await client(mock, start)
+    const { c, settings } = await client(mock, start)
     expect(c.ctx.locale.getSnapshot().active).toBe('zh')
     expectSeated(c)
     const entry = generalEntry(c)
@@ -101,8 +102,10 @@ describe('ui-settings-general apply', () => {
     // The nav label is a locale-following thunk; owners resolve at read time.
     expect(generalLabel(c)).toBe('通用设置')
     expect(c.ctx.slots.spec('settings.general.item')).toEqual({ kind: 'list', scope: 'root' })
-    // The shared developer-tool control belongs to General; onboarding remains feature-owned.
-    expect(c.ctx.slots.entries('settings.general.item').filter(row => row.locale === NS).map(row => row.options.id)).toEqual(['developer-tools', 'current-version'])
+    // The shared developer-tool control and the completed-Turn notification
+    // preference belong to General; onboarding remains feature-owned.
+    expect(c.ctx.slots.entries('settings.general.item').filter(row => row.locale === NS).map(row => row.options.id))
+      .toEqual(['developer-tools', 'turn-notifications', 'current-version'])
     expect(c.ctx.slots.entries('settings.onboarding').filter(row => row.locale === NS)).toEqual([])
     const developerRow = c.ctx.slots.entries('settings.general.item').find(row => row.options.id === 'developer-tools')!
     const developer = (developerRow.inject as unknown as () => DeveloperToolsRowInjected)()
@@ -111,6 +114,21 @@ describe('ui-settings-general apply', () => {
     const setEnabled = vi.spyOn(c.ctx.configForms.developerTools, 'setEnabled').mockResolvedValue(undefined)
     await developer.setEnabled(true)
     expect(setEnabled).toHaveBeenCalledExactlyOnceWith(true)
+    // The completed-Turn preference rides the same configuration forms and
+    // persists through the Host write path; the Desktop carrier stays absent
+    // on an ordinary Web page.
+    const notificationRow = c.ctx.slots.entries('settings.general.item').find(row => row.options.id === 'turn-notifications')!
+    const notifications = (notificationRow.inject as unknown as () => TurnNotificationInjected)()
+    expect(notifications.hooks.turnMode.getSnapshot()).toBe('unfocused')
+    expect(notifications.hooks.notificationSound.getSnapshot()).toBe(true)
+    settings.mutate.mockResolvedValue(ok(localeView('zh', 1)))
+    await notifications.setTurnMode('never')
+    await notifications.setSound(false)
+    const writes = settings.mutate.mock.calls.filter(call => call[0] === 'ui-settings-general')
+    expect(writes.map(call => call[1])).toEqual([
+      [{ op: 'set', path: ['turnMode'], value: 'never' }],
+      [{ op: 'set', path: ['sound'], value: false }],
+    ])
     const { controller, hooks } = actionInjectedOf(c)
     expect(controller.store.getSnapshot().status).toBe('idle')
     expect(hooks.snapshot).toBe(controller.store)
@@ -213,7 +231,8 @@ describe('ui-settings-general apply', () => {
       expect(ownEntries(c, name)[0]).not.toBe(before[index])
     })
     expect(c.ctx.slots.spec('settings.general.item')).toEqual({ kind: 'list', scope: 'root' })
-    expect(c.ctx.slots.entries('settings.general.item').filter(row => row.locale === NS).map(row => row.options.id)).toEqual(['developer-tools', 'current-version'])
+    expect(c.ctx.slots.entries('settings.general.item').filter(row => row.locale === NS).map(row => row.options.id))
+      .toEqual(['developer-tools', 'turn-notifications', 'current-version'])
     // The recovered registrations still ride the locale path.
     const english = localeView('en', 1)
     const chinese = localeView('zh', 2)

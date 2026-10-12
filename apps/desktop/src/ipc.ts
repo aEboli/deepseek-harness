@@ -17,6 +17,8 @@ export const DESKTOP_IPC = {
   onboardingActive: 'dsh-desktop:onboarding-active',
   onboardingApiKey: 'dsh-desktop:onboarding-api-key',
   bootFailed: 'dsh-desktop:boot-failed',
+  notifyTurnEnd: 'dsh-desktop:notify-turn-end',
+  dismissTurnEnd: 'dsh-desktop:dismiss-turn-end',
   browserAcquire: 'dsh-desktop:browser-acquire',
   browserRelease: 'dsh-desktop:browser-release',
   browserOpenRequested: 'dsh-desktop:browser-open-requested',
@@ -68,12 +70,32 @@ export interface DesktopUpdatePresentation {
   readonly failure?: DesktopUpdateFailureKind
 }
 
+/**
+ * Completed-turn notification requested by the page. The renderer supplies only
+ * presentation copy; focus observation, native presentation, and the
+ * return-to-app click stay with the shell.
+ */
+export interface DesktopTurnNotice {
+  /**
+   * Present one system notification for a completion the user could not see.
+   * The shell presents nothing while the conversation window has focus.
+   * @param title - localized Session label, or the product name.
+   * @param body - localized completion copy.
+   * @param sound - whether the operating system plays the notification sound.
+   */
+  turnEnd(title: string, body: string, sound: boolean): Promise<void>
+  /** Drop the presented notice; the window is visible again. */
+  dismiss(): Promise<void>
+}
+
 /** Product documents cannot supply update versions, package URLs, or installation authorization. */
 export interface DshDesktopProductApi {
   readonly protocolVersion: 1
   readonly browser: DesktopBrowserBridge
   readonly keyboard: DesktopKeyboardApi
   readonly shortcuts: DesktopShortcutsApi
+  /** Completed-Turn system notifications for a background window. */
+  readonly notification: DesktopTurnNotice
   /**
    * Local machine description for the feedback questionnaire.
    * @returns `name=value` fields separated by `; `, with no hostname, user name, or serial number.

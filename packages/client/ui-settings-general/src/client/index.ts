@@ -34,6 +34,9 @@ import { CloseLabel, HeaderContent, TriggerContent } from './chrome.tsx'
 import { GeneralSection } from './GeneralSection.tsx'
 import { CurrentVersionRow } from './CurrentVersionRow.tsx'
 import { DeveloperToolsRow, type DeveloperToolsRowInjected } from './DeveloperToolsRow.tsx'
+import { TurnNotificationsRow } from './TurnNotificationsRow.tsx'
+import { TurnNotificationPolicy, type DesktopTurnNoticeCarrier } from './turn-notification-policy.ts'
+import { NOTIFICATIONS_SETTINGS_NAMESPACE, type NotificationSettings } from './turn-notifications.ts'
 import { SettingsDocumentAction } from './SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from './SettingsDocumentAction.tsx'
 import { SettingsDocumentStore } from './settings-document-store.ts'
@@ -65,7 +68,7 @@ const NS = 'settings'
  * ui-settings' apply, whose activation order relative to this one is NOT
  * constrained; registrations depend on their slots through `slots.inject()`.
  */
-export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.settings', 'configForms', 'shortcuts']
+export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.settings', 'configForms', 'shortcuts', 'sessions']
 
 /**
  * Register the `settings` dictionaries, the chrome content, and the General
@@ -80,6 +83,29 @@ export function apply(ctx: ClientContext): void {
       setEnabled: enabled => ctx.configForms.developerTools.setEnabled(enabled),
     }),
   }, DeveloperToolsRow))
+  // Completed-Turn notifications follow the appearance preferences: the Host
+  // decision is durable, the running observation is the Session status event,
+  // and the shell owns native presentation and the return-to-app click.
+  const desktopNoticeCarrier = (globalThis as typeof globalThis & {
+    dshDesktop?: { protocolVersion: number; notification?: DesktopTurnNoticeCarrier }
+  }).dshDesktop
+  const notifications = new TurnNotificationPolicy(
+    ctx.configForms.get<NotificationSettings>(NOTIFICATIONS_SETTINGS_NAMESPACE),
+    {
+      ctx,
+      sessions: ctx.sessions,
+      desktop: desktopNoticeCarrier?.protocolVersion === 1 ? desktopNoticeCarrier.notification : undefined,
+      copy: () => ({
+        body: () => ctx.locale.bind(NS)('notifications.notice.body'),
+        fallbackTitle: () => ctx.locale.bind(NS)('notifications.notice.title'),
+      }),
+    },
+  )
+  ctx.effect(() => () => { notifications.dispose() }, 'ui-settings-general: turn notification policy')
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item', id: 'turn-notifications', order: 90, locale: NS,
+    inject: () => notifications.injected(),
+  }, TurnNotificationsRow))
   // Version information follows the core preferences.
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item', id: 'current-version', order: 100, locale: NS,

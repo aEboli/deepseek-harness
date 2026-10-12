@@ -1,0 +1,57 @@
+/* Two adjacent rows of one preference group: the mode selector and its sound
+ * switch. Chrome and separators match the other General rows, and the section
+ * strips the trailing separator wherever the column ends. */
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.title {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.description {
+  margin-top: 4px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.error {
+  margin-top: 4px;
+  color: var(--dsw-alias-label-error);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 220px;
+  padding: 6px 10px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.selector:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.chevron {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
